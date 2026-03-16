@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Light Bulb Demo</title>
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+    }
+
+    html,body{
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:Arial,sans-serif;
+      background:#05070b;
+      color:white;
+    }
+
+    body.light{
+      background:
+        radial-gradient(circle at center, rgba(255,220,120,0.16), transparent 30%),
+        radial-gradient(circle at top, #101827, #05070b 75%);
+    }
+
+    #app{
+      position:relative;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+    }
+
+    #threeCanvas{
+      position:absolute;
+      inset:0;
+      width:100%;
+      height:100%;
+      display:block;
+      z-index:1;
+    }
+
+    #fx{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:4;
+    }
+
+    #ui{
+      position:absolute;
+      inset:0;
+      z-index:5;
+      pointer-events:none;
+    }
+
+    #ropeArea{
+      position:absolute;
+      left:50%;
+      top:0;
+      width:120px;
+      height:360px;
+      transform:translateX(-50%);
+      pointer-events:auto;
+    }
+
+    #rope{
+      position:absolute;
+      left:50%;
+      top:0;
+      width:4px;
+      height:230px;
+      transform:translateX(-50%);
+      background:linear-gradient(to bottom,#ffffff,#d7d7d7);
+      border-radius:999px;
+      transition:height .12s ease;
+      box-shadow:0 0 8px rgba(255,255,255,.16);
+    }
+
+    #handle{
+      position:absolute;
+      left:50%;
+      top:230px;
+      width:24px;
+      height:24px;
+      transform:translateX(-50%);
+      border-radius:50%;
+      background:radial-gradient(circle at 30% 30%, #ffffff, #d6dbe4 55%, #aab2bf 100%);
+      box-shadow:0 8px 18px rgba(0,0,0,.25), 0 0 12px rgba(255,255,255,.28);
+      cursor:pointer;
+      transition:transform .12s ease;
+    }
+
+    #handle:active{
+      transform:translateX(-50%) scale(.96);
+    }
+
+    #leftPanel{
+      position:absolute;
+      left:34px;
+      bottom:34px;
+      padding:18px 20px;
+      border-radius:20px;
+      background:rgba(10,14,22,.48);
+      border:1px solid rgba(255,255,255,.06);
+      backdrop-filter:blur(12px);
+      box-shadow:0 16px 36px rgba(0,0,0,.22);
+      max-width:360px;
+      pointer-events:none;
+    }
+
+    #title{
+      font-size:28px;
+      font-weight:700;
+      margin-bottom:8px;
+    }
+
+    #subtitle{
+      font-family:Consolas,monospace;
+      color:#50fa9a;
+      font-size:15px;
+      margin-bottom:12px;
+    }
+
+    #energy{
+      font-size:18px;
+      color:#e6edf7;
+      margin-bottom:8px;
+    }
+
+    #status{
+      font-size:14px;
+      color:#9fb0c9;
+    }
+
+    #codePanel{
+      position:absolute;
+      right:28px;
+      bottom:28px;
+      width:min(420px,42vw);
+      min-width:300px;
+      background:rgba(12,17,26,.92);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:0 18px 50px rgba(0,0,0,.35);
+      pointer-events:none;
+    }
+
+    #codeTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px 14px;
+      background:rgba(255,255,255,.04);
+      border-bottom:1px solid rgba(255,255,255,.05);
+      font-size:13px;
+      color:#dce6f8;
+    }
+
+    #dots{
+      display:flex;
+      gap:8px;
+    }
+
+    .dot{
+      width:11px;
+      height:11px;
+      border-radius:50%;
+    }
+
+    .red{background:#ff5f56}
+    .yellow{background:#ffbd2e}
+    .green{background:#27c93f}
+
+    #codeBody{
+      padding:16px 18px;
+      font-family:Consolas,monospace;
+      font-size:14px;
+      line-height:1.8;
+      color:#dce6ff;
+      min-height:170px;
+      white-space:pre-wrap;
+    }
+
+    .cursor{
+      display:inline-block;
+      width:8px;
+      height:17px;
+      background:#dce6ff;
+      vertical-align:-3px;
+      animation:blink 1s infinite;
+    }
+
+    @keyframes blink{
+      0%,48%{opacity:1}
+      50%,100%{opacity:0}
+    }
+
+    #tag{
+      position:absolute;
+      top:24px;
+      right:24px;
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(0,0,0,.26);
+      border:1px solid rgba(255,255,255,.08);
+      color:#f2f6ff;
+      font-size:12px;
+      letter-spacing:.8px;
+      text-transform:uppercase;
+      backdrop-filter:blur(8px);
+      pointer-events:none;
+    }
+
+    @media (max-width:860px){
+      #codePanel{
+        width:calc(100vw - 24px);
+        right:12px;
+        left:12px;
+        bottom:12px;
+        min-width:auto;
+      }
+
+      #leftPanel{
+        left:12px;
+        right:12px;
+        bottom:210px;
+        max-width:none;
+      }
+
+      #title{
+        font-size:22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="threeCanvas"></canvas>
+    <canvas id="fx"></canvas>
+
+    <div id="ui">
+      <div id="tag">3D Reel Demo</div>
+
+      <div id="ropeArea">
+        <div id="rope"></div>
+        <div id="handle"></div>
+      </div>
+
+      <div id="leftPanel">
+        <div id="title">3D Ampul Etkileşimli Demo</div>
+        <div id="subtitle">pullRope(); toggleBulb();</div>
+        <div id="energy">Enerji Kullanımı: 0.00 W</div>
+        <div id="status">Durum: OFF</div>
+      </div>
+
+      <div id="codePanel">
+        <div id="codeTop">
+          <div id="dots">
+            <div class="dot red"></div>
+            <div class="dot yellow"></div>
+            <div class="dot green"></div>
+          </div>
+          <div>light-bulb-demo.js</div>
+        </div>
+        <div id="codeBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+    const canvas = document.getElementById("threeCanvas");
+    const fx = document.getElementById("fx");
+    const fctx = fx.getContext("2d");
+
+    const rope = document.getElementById("rope");
+    const handle = document.getElementById("handle");
+    const energyText = document.getElementById("energy");
+    const statusText = document.getElementById("status");
+    const codeBody = document.getElementById("codeBody");
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+
+    fx.width = width;
+    fx.height = height;
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias:true,
+      alpha:true
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    renderer.setSize(width,height);
+
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.set(0, 0.2, 7);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.75);
+    scene.add(ambient);
+
+    const pointLight = new THREE.PointLight(0xffdd88, 0, 18, 2);
+    pointLight.position.set(0, 1.2, 1.2);
+    scene.add(pointLight);
+
+    const rimLight = new THREE.DirectionalLight(0x99bbff, 0.9);
+    rimLight.position.set(2, 2, 3);
+    scene.add(rimLight);
+
+    const bulbGroup = new THREE.Group();
+    scene.add(bulbGroup);
+
+    const glassGeo = new THREE.SphereGeometry(1.05, 64, 64);
+    glassGeo.scale(1, 1.18, 1);
+
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color:0xdfe8ff,
+      transparent:true,
+      opacity:0.32,
+      transmission:0.9,
+      thickness:0.8,
+      roughness:0.08,
+      metalness:0,
+      clearcoat:1,
+      clearcoatRoughness:0.04
+    });
+
+    const glass = new THREE.Mesh(glassGeo, glassMat);
+    glass.position.y = 0.65;
+    bulbGroup.add(glass);
+
+    const neckGeo = new THREE.CylinderGeometry(0.42, 0.5, 0.55, 48);
+    const neckMat = new THREE.MeshStandardMaterial({
+      color:0xcfd5df,
+      metalness:0.8,
+      roughness:0.28
+    });
+    const neck = new THREE.Mesh(neckGeo, neckMat);
+    neck.position.y = -0.55;
+    bulbGroup.add(neck);
+
+    const threadGeo = new THREE.CylinderGeometry(0.5, 0.55, 0.42, 48, 1, true);
+    const thread = new THREE.Mesh(threadGeo, neckMat);
+    thread.position.y = -0.95;
+    bulbGroup.add(thread);
+
+    const baseCapGeo = new THREE.CylinderGeometry(0.58, 0.58, 0.12, 48);
+    const baseCap = new THREE.Mesh(
+      baseCapGeo,
+      new THREE.MeshStandardMaterial({
+        color:0xb8c0cc,
+        metalness:0.82,
+        roughness:0.24
+      })
+    );
+    baseCap.position.y = -1.2;
+    bulbGroup.add(baseCap);
+
+    const supportMat = new THREE.MeshStandardMaterial({
+      color:0x9ea7b5,
+      metalness:0.85,
+      roughness:0.25
+    });
+
+    const supportGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.75, 16);
+    const supportL = new THREE.Mesh(supportGeo, supportMat);
+    const supportR = new THREE.Mesh(supportGeo, supportMat);
+    supportL.position.set(-0.23, 0.16, 0);
+    supportR.position.set(0.23, 0.16, 0);
+    bulbGroup.add(supportL, supportR);
+
+    const filamentMat = new THREE.MeshStandardMaterial({
+      color:0xc8a967,
+      emissive:0x000000,
+      emissiveIntensity:0
+    });
+    const filamentGeo = new THREE.TorusGeometry(0.22, 0.03, 18, 60, Math.PI);
+    const filament = new THREE.Mesh(filamentGeo, filamentMat);
+    filament.rotation.z = Math.PI;
+    filament.position.set(0, 0.26, 0);
+    bulbGroup.add(filament);
+
+    const filamentGlow = new THREE.PointLight(0xffdc7a, 0, 4, 2);
+    filamentGlow.position.set(0, 0.28, 0.12);
+    bulbGroup.add(filamentGlow);
+
+    const wireTopGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.4, 12);
+    const wireTop = new THREE.Mesh(wireTopGeo, supportMat);
+    wireTop.position.set(0, 2.15, 0);
+    scene.add(wireTop);
+
+    bulbGroup.position.y = 0.2;
+
+    function makeGlowTexture(){
+      const c = document.createElement("canvas");
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext("2d");
+      const g = ctx.createRadialGradient(128,128,10,128,128,110);
+      g.addColorStop(0,"rgba(255,240,180,1)");
+      g.addColorStop(0.3,"rgba(255,220,120,.65)");
+      g.addColorStop(1,"rgba(255,220,120,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,256,256);
+      return new THREE.CanvasTexture(c);
+    }
+
+    const glowSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map:makeGlowTexture(),
+        color:0xffdf88,
+        transparent:true,
+        opacity:0
+      })
+    );
+    glowSprite.scale.set(3.8,3.8,1);
+    glowSprite.position.set(0,0.72,0);
+    bulbGroup.add(glowSprite);
+
+    let isOn = false;
+    let isBroken = false;
+    let energy = 0;
+
+    let dragging = false;
+    let startY = 0;
+    let toggledThisDrag = false;
+
+    let ropeBase = 230;
+    let ropeLength = ropeBase;
+
+    let swing = 0;
+    let swingV = 0;
+    let toggleCount = 0;
+
+    let particles = [];
+    let shards = [];
+
+    const codeText =
+`const toggleBulb = () => {
+  lightOn = !lightOn
+  filamentGlow.intensity = lightOn ? 2 : 0
+  glowSprite.material.opacity = lightOn ? 0.85 : 0
+}
+
+handle.addEventListener("pointerdown", startPull)
+window.addEventListener("pointermove", pullMove)
+window.addEventListener("pointerup", endPull)`;
+
+    let codeIndex = 0;
+
+    function typeCode(){
+      if(codeIndex <= codeText.length){
+        codeBody.innerHTML =
+          codeText.slice(0, codeIndex).replace(/\n/g, "<br>") +
+          '<span class="cursor"></span>';
+        codeIndex++;
+        setTimeout(typeCode, 18);
+      }
+    }
+    typeCode();
+
+    function setStatus(){
+      if(isBroken){
+        statusText.textContent = "Durum: BROKEN";
+      }else{
+        statusText.textContent = "Durum: " + (isOn ? "ON" : "OFF");
+      }
+      energyText.textContent = "Enerji Kullanımı: " + energy.toFixed(2) + " W";
+    }
+    setStatus();
+
+    function bulbScreenPos(){
+      const v = new THREE.Vector3(0, 0.65, 0);
+      bulbGroup.localToWorld(v);
+      v.project(camera);
+
+      return {
+        x:(v.x * 0.5 + 0.5) * width,
+        y:(-v.y * 0.5 + 0.5) * height
+      };
+    }
+
+    function spawnParticles(count = 14){
+      const pos = bulbScreenPos();
+
+      for(let i=0;i<count;i++){
+        particles.push({
+          x:pos.x + (Math.random() - 0.5) * 30,
+          y:pos.y + (Math.random() - 0.5) * 30,
+          vx:(Math.random() - 0.5) * 2.2,
+          vy:-Math.random() * 2 - 0.5,
+          life:40 + Math.random() * 25,
+          r:2 + Math.random() * 3,
+          a:0.4 + Math.random() * 0.5
+        });
+      }
+    }
+
+    function drawFx(){
+      fctx.clearRect(0,0,width,height);
+
+      if(isOn && !isBroken){
+        const pos = bulbScreenPos();
+        const g = fctx.createRadialGradient(pos.x, pos.y, 20, pos.x, pos.y, 240);
+        g.addColorStop(0, "rgba(255,230,150,0.35)");
+        g.addColorStop(0.35, "rgba(255,230,150,0.12)");
+        g.addColorStop(1, "rgba(255,230,150,0)");
+        fctx.fillStyle = g;
+        fctx.fillRect(0,0,width,height);
+      }
+
+      particles = particles.filter(p => p.life > 0);
+      for(const p of particles){
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 1;
+        p.a *= 0.985;
+
+        fctx.beginPath();
+        fctx.fillStyle = `rgba(255,220,120,${p.a})`;
+        fctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        fctx.fill();
+      }
+
+      shards = shards.filter(s => s.life > 0);
+      for(const s of shards){
+        s.x += s.vx;
+        s.y += s.vy;
+        s.vy += 0.08;
+        s.rot += s.spin;
+        s.life -= 1;
+
+        fctx.save();
+        fctx.translate(s.x, s.y);
+        fctx.rotate(s.rot);
+        fctx.globalAlpha = Math.max(s.life / 80, 0);
+        fctx.fillStyle = "rgba(210,235,255,0.85)";
+        fctx.beginPath();
+        fctx.moveTo(0, -8);
+        fctx.lineTo(7, 0);
+        fctx.lineTo(2, 8);
+        fctx.lineTo(-6, 4);
+        fctx.closePath();
+        fctx.fill();
+        fctx.restore();
+      }
+    }
+
+    function breakGlass(){
+      if(isBroken) return;
+
+      isBroken = true;
+      isOn = false;
+      document.body.classList.remove("light");
+
+      filamentMat.emissiveIntensity = 0;
+      filamentMat.emissive.setHex(0x000000);
+      filamentGlow.intensity = 0;
+      glowSprite.material.opacity = 0;
+      pointLight.intensity = 0;
+
+      const pos = bulbScreenPos();
+
+      for(let i=0;i<20;i++){
+        shards.push({
+          x:pos.x + (Math.random() - 0.5) * 50,
+          y:pos.y + (Math.random() - 0.5) * 50,
+          vx:(Math.random() - 0.5) * 4,
+          vy:-Math.random() * 3 - 1,
+          rot:Math.random() * Math.PI,
+          spin:(Math.random() - 0.5) * 0.25,
+          life:60 + Math.random() * 20
+        });
+      }
+
+      glass.visible = false;
+      setStatus();
+    }
+
+    function toggleBulb(){
+      if(isBroken) return;
+
+      isOn = !isOn;
+      toggleCount++;
+
+      if(isOn){
+        document.body.classList.add("light");
+        filamentMat.emissive.setHex(0xffd976);
+        filamentMat.emissiveIntensity = 2.8;
+        filamentGlow.intensity = 2;
+        glowSprite.material.opacity = 0.85;
+        pointLight.intensity = 2;
+        spawnParticles(18);
+      }else{
+        document.body.classList.remove("light");
+        filamentMat.emissive.setHex(0x000000);
+        filamentMat.emissiveIntensity = 0;
+        filamentGlow.intensity = 0;
+        glowSprite.material.opacity = 0;
+        pointLight.intensity = 0;
+      }
+
+      swingV += isOn ? 0.06 : -0.06;
+      setStatus();
+
+      if(toggleCount >= 10){
+        breakGlass();
+      }
+    }
+
+    function resetRope(){
+      ropeLength = ropeBase;
+      rope.style.height = ropeBase + "px";
+      handle.style.top = ropeBase + "px";
+    }
+
+    function startPull(clientY){
+      if(isBroken) return;
+      dragging = true;
+      startY = clientY;
+      toggledThisDrag = false;
+    }
+
+    function movePull(clientY){
+      if(!dragging || isBroken) return;
+
+      const dist = Math.max(0, clientY - startY);
+      const limited = Math.min(dist, 80);
+
+      ropeLength = ropeBase + limited;
+      rope.style.height = ropeLength + "px";
+      handle.style.top = ropeLength + "px";
+
+      swingV += limited * 0.00035;
+
+      if(limited > 35 && !toggledThisDrag){
+        toggleBulb();
+        toggledThisDrag = true;
+      }
+    }
+
+    function endPull(){
+      if(!dragging) return;
+      dragging = false;
+      resetRope();
+    }
+
+    handle.addEventListener("pointerdown", (e) => {
+      startPull(e.clientY);
+      handle.setPointerCapture(e.pointerId);
+    });
+
+    window.addEventListener("pointermove", (e) => {
+      movePull(e.clientY);
+    });
+
+    window.addEventListener("pointerup", () => {
+      endPull();
+    });
+
+    handle.addEventListener("click", () => {
+      if(!dragging && !isBroken){
+        toggleBulb();
+      }
+    });
+
+    setInterval(() => {
+      if(isOn && !isBroken){
+        energy += 0.05;
+        setStatus();
+      }
+    }, 1000);
+
+    function animate(){
+      swingV += -swing * 0.02;
+      swingV *= 0.965;
+      swing += swingV;
+
+      bulbGroup.rotation.z = swing;
+      wireTop.rotation.z = swing * 0.35;
+
+      bulbGroup.rotation.y += 0.003;
+
+      drawFx();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    window.addEventListener("resize", () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+
+      fx.width = width;
+      fx.height = height;
+
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(width, height);
+    });
+  </script>
+</body>
+</html>
